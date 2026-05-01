@@ -59,7 +59,8 @@ CREATE TABLE session_sets (
   set_number int NOT NULL,
   weight_kg numeric(5,2) NOT NULL,
   reps int NOT NULL,
-  logged_at timestamptz NOT NULL DEFAULT now()
+  logged_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (session_id, exercise_id, set_number)
 );
 
 -- settings
