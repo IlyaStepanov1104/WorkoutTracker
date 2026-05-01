@@ -2,10 +2,11 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { WorkoutPlan, WorkoutSession } from '@/lib/types';
+import { WorkoutPlan, WorkoutSession, PlanExercise } from '@/lib/types';
 import { formatDate, formatDuration } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 import { Dumbbell, Play, Clock, AlertCircle } from 'lucide-react';
 import { startSession } from '@/lib/actions';
 import { showToast } from '@/components/ui/toast';
@@ -24,12 +25,13 @@ interface RecentSession {
 
 interface Props {
   todayPlan: WorkoutPlan | null;
+  todayPlanExercises: PlanExercise[];
   activeSession: WorkoutSession | null;
   recentWithVolume: RecentSession[];
   weekDays: WeekDay[];
 }
 
-export function DashboardClient({ todayPlan, activeSession, recentWithVolume, weekDays }: Props) {
+export function DashboardClient({ todayPlan, todayPlanExercises, activeSession, recentWithVolume, weekDays }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -83,6 +85,24 @@ export function DashboardClient({ todayPlan, activeSession, recentWithVolume, we
                   <p className="text-sm text-muted-foreground">{todayPlan.description}</p>
                 )}
               </div>
+
+              {todayPlanExercises.length > 0 && (
+                <>
+                  <Separator />
+                  <div className="space-y-1">
+                    {todayPlanExercises.map((pe, i) => (
+                      <div key={pe.id} className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">{i + 1}. {pe.exercise?.name ?? '—'}</span>
+                        <span className="text-muted-foreground tabular-nums">
+                          {pe.sets}×{pe.rep_min}–{pe.rep_max}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <Separator />
+                </>
+              )}
+
               <Button
                 className="w-full"
                 size="lg"
@@ -140,7 +160,7 @@ export function DashboardClient({ todayPlan, activeSession, recentWithVolume, we
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Последние тренировки</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-1">
             {recentWithVolume.map(({ session, volume }) => (
               <Link key={session.id} href={`/workout/${session.id}/report`}>
                 <div className="flex items-center justify-between p-2 rounded-md hover:bg-accent transition-colors">
