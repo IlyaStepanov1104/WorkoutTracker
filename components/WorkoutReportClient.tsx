@@ -14,13 +14,13 @@ import { showToast } from '@/components/ui/toast';
 interface Props {
   session: WorkoutSession;
   sets: SessionSet[];
+  prExerciseIds?: string[];
   readOnly?: boolean;
 }
 
 interface ExerciseSummary {
   exercise_id: string;
   exercise_name: string;
-  category: string;
   sets_count: number;
   best_weight: number;
   total_volume: number;
@@ -28,7 +28,7 @@ interface ExerciseSummary {
   is_pr: boolean;
 }
 
-export function WorkoutReportClient({ session, sets, readOnly = false }: Props) {
+export function WorkoutReportClient({ session, sets, prExerciseIds, readOnly = false }: Props) {
   const [notes, setNotes] = useState(session.notes ?? '');
   const [saving, setSaving] = useState(false);
   const [sharing, setSharing] = useState(false);
@@ -37,7 +37,6 @@ export function WorkoutReportClient({ session, sets, readOnly = false }: Props) 
   const totalVolume = calcVolume(sets);
   const duration = formatDuration(session.started_at, session.finished_at);
 
-  // Group sets by exercise
   const exerciseMap = new Map<string, SessionSet[]>();
   sets.forEach(s => {
     if (!exerciseMap.has(s.exercise_id)) exerciseMap.set(s.exercise_id, []);
@@ -46,18 +45,16 @@ export function WorkoutReportClient({ session, sets, readOnly = false }: Props) 
 
   const exerciseSummaries: ExerciseSummary[] = Array.from(exerciseMap.entries()).map(([id, exSets]) => {
     const bestSet = exSets.reduce((best, s) => s.weight_kg > best.weight_kg ? s : best, exSets[0]);
-    const one_rm = exSets[0]?.exercise?.category === 'compound'
-      ? calcEpley1RM(bestSet.weight_kg, bestSet.reps)
-      : null;
+    const isCompound = exSets[0]?.exercise?.category === 'compound';
+    const one_rm = isCompound ? calcEpley1RM(bestSet.weight_kg, bestSet.reps) : null;
     return {
       exercise_id: id,
       exercise_name: exSets[0].exercise_name,
-      category: exSets[0].exercise?.category ?? 'compound',
       sets_count: exSets.length,
       best_weight: bestSet.weight_kg,
       total_volume: calcVolume(exSets),
       one_rm,
-      is_pr: false, // would need all-time history to determine
+      is_pr: prExerciseIds?.includes(id) ?? false,
     };
   });
 
@@ -96,7 +93,7 @@ export function WorkoutReportClient({ session, sets, readOnly = false }: Props) 
         )}
       </div>
 
-      {/* Summary card */}
+      {/* Summary */}
       <Card>
         <CardContent className="pt-4 space-y-3">
           <div className="flex items-center gap-2">
@@ -131,18 +128,18 @@ export function WorkoutReportClient({ session, sets, readOnly = false }: Props) 
           {exerciseSummaries.map(ex => (
             <div key={ex.exercise_id} className="border-b pb-3 last:border-0 last:pb-0">
               <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-medium">{ex.exercise_name}</span>
                   {ex.is_pr && (
                     <Badge className="text-xs bg-yellow-500 text-yellow-50">🏆 PR</Badge>
                   )}
                 </div>
-                <span className="text-sm text-muted-foreground">{ex.sets_count} подх.</span>
+                <span className="text-sm text-muted-foreground shrink-0">{ex.sets_count} подх.</span>
               </div>
-              <div className="flex gap-4 text-sm text-muted-foreground">
-                <span>Лучший: {ex.best_weight} кг</span>
+              <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+                <span>Лучший: <strong className="text-foreground">{ex.best_weight} кг</strong></span>
                 <span>Объём: {Math.round(ex.total_volume)} кг</span>
-                {ex.one_rm && <span>1RM≈{ex.one_rm} кг</span>}
+                {ex.one_rm && <span>1RM ≈ {ex.one_rm} кг</span>}
               </div>
             </div>
           ))}
@@ -179,12 +176,7 @@ export function WorkoutReportClient({ session, sets, readOnly = false }: Props) 
       {/* Actions */}
       {!readOnly && (
         <div className="flex gap-3">
-          <Button
-            variant="outline"
-            className="flex-1"
-            onClick={handleShare}
-            disabled={sharing}
-          >
+          <Button variant="outline" className="flex-1" onClick={handleShare} disabled={sharing}>
             <Share2 className="h-4 w-4 mr-2" />
             {sharing ? 'Генерация...' : 'Поделиться'}
           </Button>

@@ -314,3 +314,47 @@ export async function getSessionVolume(sessionId: string): Promise<number> {
   if (!data) return 0;
   return data.reduce((sum: number, s: { weight_kg: number; reps: number }) => sum + s.weight_kg * s.reps, 0);
 }
+
+// Returns a Set of exercise_ids that achieved an all-time weight PR in this session.
+export async function getSessionPRs(sessionId: string): Promise<Set<string>> {
+  const db = createServerClient();
+
+  // Get every set from this session
+  const { data: sessionSets } = await db
+    .from('session_sets')
+    .select('exercise_id, weight_kg')
+    .eq('session_id', sessionId);
+
+  if (!sessionSets || sessionSets.length === 0) return new Set();
+
+  // Best weight per exercise in this session
+  const sessionBest: Record<string, number> = {};
+  for (const s of sessionSets as { exercise_id: string; weight_kg: number }[]) {
+    if (!sessionBest[s.exercise_id] || s.weight_kg > sessionBest[s.exercise_id]) {
+      sessionBest[s.exercise_id] = s.weight_kg;
+    }
+  }
+
+  const prs = new Set<string>();
+
+  for (const [exerciseId, bestInSession] of Object.entries(sessionBest)) {
+    // Find the max weight for this exercise across all OTHER finished sessions
+    const { data: allSets } = await db
+      .from('session_sets')
+      .select('weight_kg, session:workout_sessions!inner(finished_at)')
+      .eq('exercise_id', exerciseId)
+      .neq('session_id', sessionId)
+      .not('session.finished_at', 'is', null);
+
+    const allTimeMax = (allSets as { weight_kg: number }[] | null)?.reduce(
+      (max, s) => (s.weight_kg > max ? s.weight_kg : max),
+      0
+    ) ?? 0;
+
+    if (bestInSession > allTimeMax) {
+      prs.add(exerciseId);
+    }
+  }
+
+  return prs;
+}

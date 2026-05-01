@@ -1,4 +1,4 @@
-import { getSession, getSessionSets } from '@/lib/actions';
+import { getSession, getSessionSets, getSessionPRs } from '@/lib/actions';
 import { notFound } from 'next/navigation';
 import { WorkoutReportClient } from '@/components/WorkoutReportClient';
 
@@ -8,7 +8,10 @@ export default async function WorkoutReportPage({ params }: { params: { sessionI
   const session = await getSession(params.sessionId);
   if (!session) notFound();
 
-  const sets = await getSessionSets(params.sessionId);
+  const [sets, prs] = await Promise.all([
+    getSessionSets(params.sessionId),
+    getSessionPRs(params.sessionId),
+  ]);
 
-  return <WorkoutReportClient session={session} sets={sets} />;
+  return <WorkoutReportClient session={session} sets={sets} prExerciseIds={Array.from(prs)} />;
 }
